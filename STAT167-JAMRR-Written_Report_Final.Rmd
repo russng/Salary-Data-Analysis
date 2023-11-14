@@ -1,0 +1,919 @@
+---
+title: "STAT167 Final Written Report"
+author: "JAMRR: Jiyeon Seo, Russel Wasko, Russell Ng, Arlette Jaime, Michelle Cheuk"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+**What is your research question? Define the overall objective of your research project; then break down to 5-10 coherent research aims and/or sub-questions.**
+
+Overall Objective: Analysis on the correlation between the different demographic, personal backgrounds, and professional factors on the salary class of individuals. 
+
+Some coherent research aims and sub-questions we will answer can be seen below.
+
+1. Is there a correlation between education and work class?
+2. Does marital status have an effect on the amount of work time per week and salary
+3. Does age and salary have a correlation? 
+4. Does gender affect the income of different types of jobs?
+5. What jobs have the highest proportion of salaries > $50,000
+6. Does race have an affect on an individual's income?
+7. Does the amount of education an individual receives affect the salary class of that individual?
+8. Can the proportions of race in education levels, explain why some races earn more than others?
+
+
+**Our dataset: Salary Prediction Classification**
+
+We decided on a dataset found from kaggle titled Salary Prediction Classification (link below). This dataset has 15 columns and has 35,561 observations. The columns are listed below with their explanations. We believe the data is relatively clean and has enough information to answer all of our research questions. 
+
+*Explanation of the variables of the dataset*
+
+1. age : continuous.
+2. workclass: a general term to represent the employment status of an individual - Private, Self-emp-not-inc, Self-emp-inc, Federal-gov, Local-gov, State-gov, Without-pay, Never-worked.
+3. fnlwgt: this is the number of people that census believes the entry represents - continuous.
+4. education: Preschool , 1st-4th , 5th-6th , 7th-8th , 9th , 10th , 11th , 12th , HS-grad , Prof-school , Assoc-acdm , Assoc-voc , Some-college , Bachelors , Masters , Doctorate
+5. education-num: a number that describe your education status from preschool to doctorate.
+6. marital-status: marital status of an individual. Married-civ-spouse corresponds to a civilian spouse while Married-AF-spouse is a spouse in the Armed Forces. -Married-civ-spouse, Divorced, Never-married, Separated, Widowed, Married-spouse-absent, Married-AF-spouse.
+7. occupation: Tech-support, Craft-repair, Other-service, Sales, Exec-managerial, Prof-specialty, Handlers-cleaners, Machine-op-inspct, Adm-clerical, Farming-fishing, Transport-moving, Priv-house-serv, Protective-serv, Armed-Forces.
+8. relationship: represents what this individual is relative to other
+Wife, Own-child, Husband, Not-in-family, Other-relative, Unmarried.
+9. race: White, Asian-Pac-Islander, Amer-Indian-Eskimo, Other, Black.
+10. sex: Female, Male.
+11. capital-gain: continuous.
+12. capital-loss: continuous.
+13. hours-per-week: continuous.
+14. native-country: United-States, Cambodia, England, Puerto-Rico, Canada, Germany, Outlying-US(Guam-USVI-etc), India, Japan, Greece, South, China, Cuba, Iran, Honduras, Philippines, Italy, Poland, Jamaica, Vietnam, Mexico, Portugal, Ireland, France, Dominican-Republic, Laos, Ecuador, Taiwan, Haiti, Columbia, Hungary, Guatemala, Nicaragua, Scotland, Thailand, Yugoslavia, El-Salvador, Trinadad&Tobago, Peru, Hong, Holand-Netherlands.
+9. salary: <=50K or >50K
+
+```{r, include = FALSE}
+library(tidyverse)
+```
+
+```{r, results= FALSE}
+# Import Data 
+dat = read.csv("salary.csv")
+# Check the structure of the data
+str(dat)
+```
+```{r, include = FALSE}
+#Check the summary of the data
+summary(dat)
+```
+
+***
+
+\pagebreak
+
+**Data Cleaning and Preprocessing**
+\
+**1. Removing redundant variables**
+
+Based on the dataset summary, most of the attributes are easy to understand, except for fnlwgt, which may be short for "final weight." However, without knowledge of how it was calculated or its intended meaning, it may be challenging to use in our analysis. Additionally, education.num already provides a person's education history, so the variable education is unnecessary. Similarly, marital.status indicates a person's family status, making the variable relationship redundant. Therefore, we will remove the fnlwgt, education, and relationship variables from the dataset.
+
+```{r}
+
+# 1. Remove redundant variables: fnlwgt and relationship
+dat = dat[,-c(3,8)]
+
+```
+
+```{r}
+head(dat)
+```
+
+***
+
+**2. Cleaning Outliers**
+\
+We will use the Interquartile Rule to find outliers in the variables age and education.num. Then we will use box plot to find outliers in capital gain.
+\
+```{r}
+# 2. Clean the Outliers by using IQR method
+## Cleaning outliers in age ##
+# summary(dat$age)
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##   17.00   28.00   37.00   38.58   48.00   90.00
+Q1_age = 28
+Q3_age = 48
+IQR_age = Q3_age - Q1_age
+#IQR = Q3 - Q1
+IQR_age
+
+# Find lowest value (LowerWhisker = Q1 - 1.5 * IQR_age) 
+LowerW_age = Q1_age - (1.5*IQR_age)
+LowerW_age
+
+# Find upper value (UpperWhisker = Q3 + 1.5 * IQR_age)
+UpperW_age = Q3_age + 1.5 * IQR_age
+UpperW_age
+
+# Find observations above 78 (as UpperW_age =78)
+dat = subset(dat, age <= 78)
+
+## Cleaning outliers in education.num ##
+# summary(dat$education.num)
+##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    1.00    9.00   10.00   10.08   12.00   16.00
+Q1_education.num  = 9
+Q3_education.num  = 12
+IQR_education.num = Q3_education.num  - Q1_education.num
+IQR_education.num
+
+# Find lowest value (LowerWhisker = Q1 - 1.5 * IQR_education.num) 
+LowerW_education.num  = Q1_education.num - 1.5*IQR_education.num
+LowerW_education.num 
+
+# Find upper value: (UpperWhisker = Q3 + 1.5 * IQR_education.num)
+UpperW_education.num  = Q3_education.num  + 1.5*IQR_education.num
+UpperW_education.num
+
+# Find observations below 4.5
+dat = subset(dat, education.num >= 4.5)
+
+## Cleaning outliers in capital.gain ##
+library(ggplot2)
+# summary(dat$capital.gain)
+
+box_plot = ggplot(dat, aes(x=capital.gain))+ geom_boxplot()
+box_plot
+
+```
+99999 seems like a potential outlier, so we will remove it.
+
+```{r}
+dat = subset(dat, capital.gain < 99999)
+```
+
+***
+
+**3. Reclassifying Categorical Variables and Min-Max normalization**
+\
+If a categorical variable consists of too many field values, we should reclassify the field values of the categorical variables. For simplicity of the model, I will conduct the reclassification on four variables workclass, marital.status, native.country, and occupation.
+\
+
+```{r}
+# 3. Reclassifying Categorical Variables
+## Change the "?" to Unknown ##
+dat$occupation = gsub("?", "Unknown", dat$occupation, fixed = T )
+dat$occupation = as.factor(dat$occupation)
+
+dat$workclass = gsub("?", "Unknown", dat$workclass, fixed = T )
+dat$workclass = as.factor(dat$workclass)
+
+## Reclassify field values ##
+## For marital.status ##
+unique(dat$marital.status)
+dat$marital.status[dat$marital.status == " Married-civ-spouse"] <- "Married"
+dat$marital.status[dat$marital.status == " Married-spouse-absent"] <- "Married"
+dat$marital.status[dat$marital.status == " Married-AF-spouse"] <- "Married"
+unique(dat$marital.status)
+
+## For workclass ##
+# Grouping "Federal-gov" "Local-gov", and "State-gov" into "Gov"
+levels(dat$workclass)
+levels(dat$workclass)[c(1,2,7)] = 'Gov'
+# levels(dat$workclass)
+levels(dat$workclass)[4:5] = 'Self-emp'
+# levels(dat$workclass)
+
+
+```
+
+```{r, echo = FALSE}
+## For native.country ##
+t1 = table(dat$native.country) 
+prop.table(t1)
+
+
+# Since 90% records are from the US, we group the variable native.country into "non-US" and "US"
+dat$native.country[dat$native.country != " United-States"] <- "Non-U.S."
+dat$native.country[dat$native.country == " United-States"] <- "United-States"
+
+#dat$native.country
+
+```
+
+```{r, echo = FALSE}
+
+## For occupation ##
+# levels(dat$occupation)
+levels(dat$occupation)[c(6,8,9)] = 'Service'
+levels(dat$occupation)[c(4,8)] = 'Professional/Managerial'
+levels(dat$occupation)[c(1,7)] = 'Administration'
+
+```
+```{r}
+# levels(dat$occupation)
+```
+
+Since our data consists of both categorical and numeric variables,therefore, we will apply the min-max normalization to scale the numeric data. The cleaned dataset will be named as datnorm.
+
+```{r}
+# Min-Max normalization
+
+datnorm <- dat
+for (i in c(1, 4, 9, 10, 11)){
+  mindf = min(datnorm[,i])
+  maxdf = max(datnorm[,i])
+  datnorm[,i] =(datnorm[,i] - mindf)/(maxdf - mindf)
+}
+
+```
+
+***
+\newpage
+**Exploratory Data Analysis**
+\
+In this section, we will look more in depth into the data through visual graphs and data analysis, starting by analyzing the individual variables and move into how they interact with one another to help answer our sub questions. 
+\
+
+```{r, echo = FALSE}
+#USA data & Non-USA data for visualization
+
+USAdata <- datnorm[datnorm$native.country == "United-States", ]
+NonUSAdata <- datnorm[datnorm$native.country != "United-States", ]
+
+```
+
+
+```{r, echo = FALSE, warning=FALSE}
+library(ggplot2)
+
+my_pal <- c("#40E0D0", "#c7e9b4", "#EEE8AA", "#D2B48C", "#FAFAD2", "#FAEBD7", "#D8BFD8", "#F4A460", "#F08080")
+my_xpl <- c(0.05, 0.08)
+
+par(mfrow = c(3, 2), mar = c(2, 2, 2, 2))
+
+# Total Individuals by Salary (in Units)
+plot_num <- 1
+title <- "Individuals (Total) by Salary (in Units)"
+counts <- table(datnorm$salary)
+barplot(counts, col = my_pal, main = title, xlab = "Salary", ylab = "Count", ylim = c(0, max(counts) + 100))
+
+# Add count labels above each bar
+for (i in 1:length(counts)) {
+  text(i, counts[i] + 40, labels = counts[i], pos = 3)
+}
+
+# US Individuals by Salary (in Units)
+plot_num <- 2
+title <- "US Individuals by Salary (in Units)"
+counts_USA <- table(USAdata$salary)
+barplot(counts_USA, col = my_pal, main = title, xlab = "Salary", ylab = "Count", ylim = c(0, max(counts_USA) + 100))
+
+# Add count labels above each bar
+for (i in 1:length(counts_USA)) {
+  text(i, counts_USA[i] + 40, labels = counts_USA[i], pos = 3)
+}
+
+
+# Non-US Individuals by Salary (in Units)
+plot_num <- 3
+title <- "Non-US Individuals by Salary (in Units)"
+counts_NonUSA <- table(NonUSAdata$salary)
+barplot(counts_NonUSA, col = my_pal, main = title, xlab = "Salary", ylab = "Count", ylim = c(0, max(counts_NonUSA) + 100))
+
+# Add count labels above each bar
+for (i in 1:length(counts_NonUSA)) {
+  text(i, counts_NonUSA[i] + 40, labels = counts_NonUSA[i], pos = 3)
+}
+
+# Total Individuals by Salary (in %)
+plot_num <- 4
+title <- "Individuals (Total) by Salary (in %)"
+counts <- table(datnorm$salary)
+pie(counts, col = my_pal, main = title, labels = paste0(round(100 * counts/sum(counts), 1), "%"), explode = my_xpl)
+
+# US Individuals by Salary (in %)
+plot_num <- 5
+title <- "US Individuals by Salary (in %)"
+counts_USA <- table(USAdata$salary)
+pie(counts_USA, col = my_pal, main = title, labels = paste0(round(100 * counts_USA/sum(counts_USA), 1), "%"), explode = my_xpl)
+
+# Non-US Individuals by Salary (in %)
+plot_num <- 6
+title <- "Non-US Individuals by Salary (in %)"
+counts_NonUSA <- table(NonUSAdata$salary)
+pie(counts_NonUSA, col = my_pal, main = title, labels = paste0(round(100 * counts_NonUSA/sum(counts_NonUSA), 1), "%"), explode = my_xpl)
+
+
+```
+i) The dataset exhibits some class imbalance, with more than three-quarters of the records belonging to the <=50k salary segment. The segment representing salaries below 50k constitutes approximately 24% of the dataset.
+
+ii) Additionally, it can be observed that the proportion of individuals earning over 50k salary is higher in the USA, accounting for around 24%, which aligns with the overall distribution.
+
+iii) In the NonUSA countries segment, the share of individuals earning below 50k salary is higher compared to the overall share (USA + NonUSA). It constitutes approximately 80% of the NonUSA segment.
+
+
+```{r, echo = FALSE, warning=FALSE}
+par(mfrow = c(2, 2), mar = c(5, 4, 2, 2), oma = c(0, 0, 3, 0))
+
+# Age of the Individual: Histogram
+plot_num <- 1
+title <- "Age of the Individual: Histogram"
+hist(datnorm$age, col = "#40E0D0", main = title, xlab = "Age", ylab = "Frequency", breaks = 73)
+
+# Hours / Week: Histogram
+plot_num <- 2
+title <- "Hours / Week: Histogram"
+hist(datnorm$hours.per.week, col = "#40E0D0", main = title, xlab = "Hours / Week", ylab = "Frequency", breaks = 98)
+
+# Age of the Individual: Box & Whisker Plot
+plot_num <- 3
+title <- "Age of the Individual: Box & Whisker Plot"
+boxplot(datnorm$age, horizontal = TRUE, col = "#c7e9b4", main = title, xlab = "Age")
+
+# Hours / Week: Box & Whisker Plot
+plot_num <- 4
+title <- "Hours / Week: Box & Whisker Plot"
+boxplot(datnorm$hours.per.week, horizontal = TRUE, col = "#c7e9b4", main = title, xlab = "Hours / Week")
+
+# Add overall title
+mtext("Analysis of Numerical Variables", outer = TRUE, font = 2, cex = 1.5)
+
+```
+
+i) If we look at the age distribution, age around 20-50 work the most. 
+ii) People work around 40 hours/week the most.
+
+
+```{r, echo = FALSE, warning=FALSE}
+par(mfrow = c(2, 3), mar = c(5, 4, 2, 2), oma = c(0, 0, 3, 0))
+
+# Gender (in Units)
+plot_num <- 1
+title <- "Individuals by Gender (in Units)"
+counts_gender <- table(datnorm$sex)
+barplot(counts_gender, col = my_pal, main = title, xlab = "Gender", ylab = "Count", ylim = c(0, max(counts_gender) + 50))
+        
+# Gender > 50k (in Units)
+plot_num <- 2
+title <- "Gender vs salary > 50k (in Units)"
+counts_gender_above_50k <- table(datnorm[datnorm$salary == " >50K", "sex"])
+barplot(counts_gender_above_50k, col = my_pal, main = title, xlab = "Gender", ylab = "Count", xlim=c(0,2), ylim = c(0, max(counts_gender_above_50k) + 50))
+
+# Gender <= 50k (in Units)
+plot_num <- 3
+title <- "Gender vs salary <= 50k (in Units)"
+counts_gender_below_50k <- table(datnorm[datnorm$salary == " <=50K", "sex"])
+barplot(counts_gender_below_50k, col = my_pal, main = title, xlab = "Gender", ylab = "Count", xlim=c(0,2), ylim = c(0, max(counts_gender_below_50k) + 50))
+
+# Gender (in %)
+plot_num <- 4
+title <- "Individuals by Gender (in %)"
+prop_gender <- prop.table(counts_gender) * 100
+pie(counts_gender, col = my_pal, main = title, labels = paste0(round(prop_gender, 1), "%"), explode = my_xpl, clockwise = TRUE)
+
+# Gender > 50k (in %)
+plot_num <- 5
+title <- "Gender vs salary > 50k (in %)"
+prop_gender_above_50k <- prop.table(counts_gender_above_50k) * 100
+pie(counts_gender_above_50k, col = my_pal, main = title, labels = paste0(round(prop_gender_above_50k, 1), "%"), explode = my_xpl, clockwise = TRUE)
+
+# Gender <= 50k (in %)
+plot_num <- 6
+title <- "Gender vs salary <= 50k (in %)"
+prop_gender_below_50k <- prop.table(counts_gender_below_50k) * 100
+pie(counts_gender_below_50k, col = my_pal, main = title, labels = paste0(round(prop_gender_below_50k, 1), "%"), explode = my_xpl, clockwise = TRUE)
+
+# Add overall title
+mtext("Analysis of Categorical Variables", outer = TRUE, font = 2, cex = 1.5)
+
+```
+
+There is a significant gender discrepancy in relation to salary. \
+i) Females represent only 15% of the individuals earning more than 50k, whereas they account for approximately 40% of those earning less than or equal to 50k. This suggests a gender disparity in salary distribution. \
+ii) Additionally, the gender disparity appears to be more pronounced in the USA, as the country comprises almost 90% of the total records in the dataset. \
+
+```{r, echo = FALSE, warning=FALSE}
+par(mfrow = c(2, 3), mar = c(5, 4, 2, 2), oma = c(0, 0, 3, 0))
+
+# Marital status (in Units)
+plot_num <- 1
+title <- "Individuals by Marital Status (in Units)"
+counts_marital <- table(datnorm$marital.status)
+barplot(counts_marital, col = my_pal, main = title, xlab = "Marital Status", ylab = "Count", xlim=c(0,2), ylim = c(0, max(counts_marital) + 50))
+
+# Add labels on top of the bars
+for (i in 1:length(counts_marital)) {
+  text(i, counts_marital[i] + 50, counts_marital[i], pos = 3)
+}
+
+
+# Marital status > 50k (in Units)
+plot_num <- 2
+title <- "Marital Status vs Salary > 50k (in Units)"
+counts_marital_above_50k <- table(datnorm[datnorm$salary == " >50K", "marital.status"])
+counts_marital_above_50k
+barplot(counts_marital_above_50k, col = my_pal, main = title, xlab = "Marital Status", ylab = "Count",xlim=c(0,2), ylim = c(0, max(counts_marital_above_50k) + 50))
+
+# Add labels on top of the bars
+for (i in 1:length(counts_marital_above_50k)) {
+  text(i, counts_marital_above_50k[i] + 50, counts_marital_above_50k[i], pos = 3)
+}
+
+# Marital status <= 50k (in Units)
+plot_num <- 3
+title <- "Marital Status vs Salary <= 50k (in Units)"
+counts_marital_below_50k <- table(datnorm[datnorm$salary == " <=50K", "marital.status"])
+barplot(counts_marital_below_50k, col = my_pal, main = title, xlab = "Marital Status", ylab = "Count", ylim = c(0, max(counts_marital_below_50k) + 50))
+
+# Add labels on top of the bars
+for (i in 1:length(counts_marital_below_50k)) {
+  text(i, counts_marital_below_50k[i] + 50, counts_marital_below_50k[i], pos = 3)
+}
+
+# Marital status (in %)
+plot_num <- 4
+title <- "Individuals by Marital Status (in %)"
+counts_marital_percent <- prop.table(table(datnorm$marital.status)) * 100
+labels <- paste0(names(counts_marital_percent), " (", round(counts_marital_percent, 1), "%)")
+pie(counts_marital_percent, col = my_pal, main = title, labels = labels, explode = my_xpl)
+
+# Marital status > 50k (in %)
+plot_num <- 5
+title <- "Marital Status vs Salary > 50k (in %)"
+counts_marital_above_50k_percent <- prop.table(table(datnorm[datnorm$salary == " >50K", "marital.status"])) * 100
+labels_above_50k <- paste0(names(counts_marital_above_50k_percent), " (", round(counts_marital_above_50k_percent, 1), "%)")
+pie(counts_marital_above_50k_percent, col = my_pal, main = title, labels = labels_above_50k, explode = my_xpl)
+
+# Marital status <= 50k (in %)
+plot_num <- 6
+title <- "Marital Status vs Salary <= 50k (in %)"
+counts_marital_below_50k_percent <- prop.table(table(datnorm[datnorm$salary == " <=50K", "marital.status"])) * 100
+labels_below_50k <- paste0(names(counts_marital_below_50k_percent), " (", round(counts_marital_below_50k_percent, 1), "%)")
+pie(counts_marital_below_50k_percent, col = my_pal, main = title, labels = labels_below_50k, explode = my_xpl)
+
+```
+
+From the above plots, we can notice that Married people have higher salary, and comprise around 85% of total above 50K salaried individuals. And when we exclude the Married people from the overall population, most of them have a salary lower than 50K.
+\
+
+\pagebreak
+
+**Sub-Questions**
+
+In this section, we will analyze and visualize various sub-questions pertaining to our original research question.\
+
+```{r, echo = FALSE, warning=FALSE}
+#Workclass vs Education with Salary 
+
+q1 <- ggplot(data = dat) +
+  geom_point(aes(x = workclass, y = education.num, col = salary, alpha = 0.9), position = "jitter") +
+  scale_color_manual(values = c(" <=50K" = "#F08080", " >50K" ="#40E0D0")) +
+  geom_violin(aes(x = workclass, y = education.num, alpha = 0.9)) +
+  ggtitle("Workclass vs. Education") +
+  xlab("Workclass") +
+  ylab("Education Number") +
+  labs(color = "Salary") +
+  guides(alpha = FALSE)
+
+q1
+```
+1. Is there a correlation between education and work class? \
+
+By overlaying a violin plot over a scatterplot of workclass vs. education num, we can see that in general, government workers, private workers, and self-employed workers all generally seek higher education. \
+9 = HS grad, 13 = Bachelors, 16 = Doctorate \
+i) There are very few government workers that do not have at least a high school diploma \
+ii) Private workers range in education from less than a high school diploma to higher education \
+
+\pagebreak
+
+```{r, echo = FALSE}
+#Age vs. Salary
+
+q2 <- ggplot(data = dat,aes(x = salary, y = age)) +
+  geom_boxplot(aes(fill = salary)) +
+  scale_fill_manual(values = c(" <=50K" = "#F08080", " >50K" ="#40E0D0")) +
+  ggtitle("Age vs. Salary") +
+  xlab("Salary") +
+  ylab("Age") +
+  labs(salary_binary = "Salary")
+
+q2
+```
+2. Does marital status have an effect on the amount of work time per week and salary?\
+
+Boxplots of age grouped by the salary display that in general, people who are older are more likely to make more than 50,000 compared to their younger counterparts, with the average age of people making over 50,000 at 43 while those making under 50,000 are an average age of 34.
+
+\pagebreak
+
+```{r, echo = FALSE}
+# Marital Status on Work Time per Week
+
+q3<- ggplot(data = dat, aes(x = marital.status, y = hours.per.week)) + 
+  geom_point(aes(col = salary, alpha = 0.6), position = "jitter") +
+  scale_color_manual(values = c(" <=50K" = "#F08080", " >50K" ="#40E0D0")) +
+  geom_violin() +
+  ggtitle("Marital Status vs. Hours Per Week") +
+  xlab("Marital Status") +
+  ylab("Hours Worked per Week") +
+  labs(salary = "Salary") +
+  guides(alpha = FALSE)
+
+q3
+```
+
+3. Does age and salary have a correlation? \
+
+Sorting people by marital status and overlaying a violin plot of age shows that most people regardless of marital status work 40 hours a week, which is the standard for most companies. There doesn't seem to be a large difference in working hours for those who are married, which is not what we expected, as we previously believed that those with families at home would work less hours.
+
+We observed that married people work the same or more than their single counterparts while also making more money on average. \
+
+\pagebreak
+
+4. Does gender affect the income of different types of jobs?
+```{r}
+job_gender_proportions <- dat %>%
+  group_by(occupation, sex, salary) %>%
+  summarise(count = n()) %>%
+  group_by(occupation, sex) %>%
+  mutate(proportion = count / sum(count)) %>%
+  ungroup() %>%
+  select(occupation, sex, proportion, salary) %>%
+  spread(salary, proportion)
+
+job_gender_proportions
+```
+
+\pagebreak
+
+5. What jobs have the highest proportion of salaries > $50,000 \
+
+```{r}
+# 5
+
+dat_50k <- dat[trimws(dat$salary) == ">50K", ]
+
+dat_prop <- dat_50k %>%
+  group_by(occupation) %>%
+  summarise(proportion = n() / nrow(dat_50k) * 100) %>%
+  arrange(desc(proportion))
+
+head(dat_prop, 5)
+
+ggplot(dat_prop, aes(x = occupation, y = proportion)) +
+  geom_bar(stat = "identity", fill = "pale green") +
+  labs(title = "Proportions of Salaries > $50K by Occupation",
+       x = "Occupation", y = "Proportion (%)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+The jobs that have the highest proportion of salaries over $50,000 are professional/managerial, sales, craft repair, administration, and transport moving jobs. 
+
+
+\pagebreak
+
+**Race vs. Salary** \
+6. Does race have an affect on an individual's income?
+
+```{r, message=FALSE, include = FALSE}
+#Race vs Salary Proportions
+(race_salary_proportion <- dat %>%
+  group_by(race, salary) %>%
+  summarise(count = n()) %>%
+  group_by(race) %>%
+  mutate(proportion = count / sum(count)))
+```
+```{r, message=FALSE,echo=FALSE}
+
+#Barplot
+ggplot(dat, aes(x = race, fill = salary)) +
+  geom_bar(position = "fill") +
+  xlab("Race") +
+  ylab("Proportion")
+
+#Piechart
+ggplot(race_salary_proportion, aes(x = "", y = proportion, fill = salary)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  facet_wrap(~ race) +
+  xlab("") +
+  ylab("Proportion") +
+  theme_void() +
+  theme(strip.text = element_text(size = 8, face = "bold")) +
+  geom_text(aes(label = paste0(round(proportion * 100), "%")), position = position_stack(vjust = 0.5))
+```
+
+There are two races that have a considerably larger proportion that make over 50K. Asian-Pac-Islander people and White people have about 15% more people than all the other races.
+
+\pagebreak
+**Education vs. Salary** \
+7. Does the amount of education an individual receives affect the salary class of that individual?
+
+```{r, message=FALSE, include = FALSE}
+#Filter NA values
+dat <- filter(dat, !is.na(dat$education))
+```
+```{r,include=FALSE}
+#Education as ordered factor
+dat$education <- factor(dat$education, ordered = T, levels = c(" 9th", " 10th", " 11th", " 12th", " HS-grad", " Some-college", " Assoc-voc", " Assoc-acdm", " Bachelors", " Masters", " Doctorate", " Prof-school"))
+
+#Education Salary Proportions
+(education_salary_proportion <- dat %>%
+  group_by(education, salary) %>%
+  summarise(count = n()) %>%
+  group_by(education) %>%
+  mutate(proportion = count / sum(count)))
+```
+```{r, echo=FALSE}
+#Barplot 
+ggplot(dat, aes(x = education, fill = salary)) +
+  geom_bar(position = "fill") +
+  xlab("Education") +
+  ylab("Proportion") +
+  theme(axis.text.x = element_text(size = 6))
+
+#Piechart
+ggplot(education_salary_proportion, aes(x = "", y = proportion, fill = salary)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  facet_wrap(~ education) +
+  xlab("") +
+  ylab("Proportion") +
+  theme_void() +
+  theme(strip.text = element_text(size = 8, face = "bold")) +
+  geom_text(aes(label = paste0(round(proportion * 100), "%")), position = position_stack(vjust = 0.5))
+```
+
+In order to answer this, I turned the education variable into an ordered factor starting with 9th grade level the lowest factor and going up from there. As the graphs show, individuals are more likely to earn more than 50K the higher education they have.
+
+\pagebreak
+**Race vs. Education** \
+8. Can the proportions of race in education levels, explain why some races earn more than others?
+
+```{r}
+
+#Proportion of White people in each education level
+educ_race_white <- dat %>%
+  filter(race == " White") %>%
+  group_by(education) %>%
+  summarise(count = n()) %>%
+  mutate(proportion = count / sum(count))
+
+educ_race_white
+
+#White education level barchart
+ggplot(educ_race_white, aes(x = education, y = proportion)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  xlab("Education") +
+  ylab("Proportion") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("White Education Level")
+
+#Proportion of other races in each education level
+educ_race_other <- dat %>%
+   filter(race == " Other") %>%
+  group_by(education) %>%
+  summarise(count = n()) %>%
+  mutate(proportion = count / sum(count))
+
+#Other education level barchart
+ggplot(educ_race_other, aes(x = education, y = proportion)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  xlab("Education") +
+  ylab("Proportion") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ggtitle("Other Education Level")
+```
+
+In order to see if the proportions of race in each education level might affect the race vs salary output. As the charts show, a bigger proportion of White people are able to go further in their education leading to more of them earning more than 50K compared to other races.
+
+
+\pagebreak
+
+
+**Partition the Dataset** \
+Next, we make a copy of the dataset datnorm and name it as DF. Then we split the dataset DF into a training and a test set randomly by using sample() function. The training set DF.training contains 75% of the observations while the test data DF.test is the remaining 25% of observations.
+
+```{r}
+# Creating training and test data set
+# Divide the dataset into 2 portions in the ratio of 75: 25 for the training and test data set respectively.
+DF=datnorm
+set.seed(123)
+samp = sample(1:nrow(DF),round(0.75*nrow(DF)))
+DF.training = DF[samp,]
+DF.test= DF[-samp,]
+
+# dim(DF.training)
+# dim(DF.test)
+```
+
+To handle categorical variables in the KNN model, we utilize the dummyVars() function from the Caret library. This function helps us create indicator variables for the categorical variables such as workclass, marital.status, occupation, race, sex, native.country, and income. We apply this function separately to the training set and the test set. By doing so, the target variable income is also transformed into indicator variables. In this process, the income column is split into two columns: income less than 50K and income greater than 50K. We retain only the income greater than 50K column and rename it as income.more.50k. Consequently, the higher income class is represented by a value of 1, while the lower income class (below 50K annually) is represented by a value of 0. The resulting transformed dataset is referred to as SET B, with the training set and test set named training.dmy and test.dmy, respectively.
+
+```{r, include = FALSE}
+# Create dummy variable 
+# install.packages("caret")
+library(caret)
+```
+```{r}
+## DF.training - create dummy variable ##
+dmy.training = dummyVars(" ~ .", data = DF.training)
+training.dmy = data.frame(predict(dmy.training, newdata = DF.training))
+
+# Dummy variables are created. We have to remove the income<=50k column. 
+training.dmy = training.dmy[-37] # Remove column 37 which is income <=50k
+names(training.dmy)[names(training.dmy) == "income..50K"] = "income.more.50k" # Rename the income>50k column
+
+## DF.test - create dummy variable ##
+dmy.test = dummyVars(" ~ .", data = DF.test)
+test.dmy = data.frame(predict(dmy.test, newdata = DF.test))
+
+# Add the original income.class variable into the table
+test.dmy = test.dmy[-37] # Remove column 37 which is income<=50
+names(test.dmy)[names(test.dmy) == "income..50K"] = "income.more.50k" # Rename the income>50k column
+
+```
+
+```{r, include=FALSE}
+dim(training.dmy)
+dim(test.dmy)
+```
+
+***
+\pagebreak
+
+**Regression Model**
+
+Because our dataset deals with a Binary Dependent variable, we decided to work on developing a logistic regression model.
+
+First we needed to mutate the salary character column to create a new salary binary variable where if " <=50k" = 0, and if " >50k" is set to 1.
+
+Following this we started by running a base logistic regression model with every variable in our dataset and the output is shared below.
+
+```{r, include = FALSE}
+library(tidyverse)
+library(MASS)
+```
+```{r}
+#Set salary to binary
+datnorm <- datnorm %>% 
+  mutate(salary_binary = ifelse(salary == " <=50K", 0, 1))
+
+#Base model with every variable
+log_reg <- glm(salary_binary ~ age + workclass + education.num+ marital.status +occupation+ race+ sex+ capital.gain+ capital.loss +hours.per.week+native.country, data =datnorm, family = binomial())
+
+summary(log_reg)
+```
+
+After creating the base model, we ran forward and backwards selection to ensure that our model is optimized with a variable selection process. It turns out that the forward and backwards selection kept the base model as is because every numeric variable was significant and every categorical variable contained at least one level that was significant in the model. The output is shared once again below.
+
+```{r}
+#Forward and Backwards Selection
+log_reg1 <- stepAIC(log_reg, direction = "both")
+
+#Results
+summary(log_reg1)
+```
+
+After developing our model we wanted analyze the accuracy of the model. First we developed the confusion matrix below. The model has a misclassification rate of 15.5%, a sensitivity (true positive rate) of .5842 and a specificity (true negative rate) of .9291.
+
+```{r, warning=FALSE}
+
+#Add predicted probabilities to the data frame
+datnorm$predicted_prob <- predict(log_reg, type = "response")
+
+#variable for predicted probabilities from model
+probs <- predict(log_reg, type = "response")
+
+#Predicted over or under .5
+predicted <- ifelse(probs >= 0.5, 1, 0)
+
+
+confusion_matrix <- table(datnorm$salary_binary,predicted)
+
+#print confusion matrix
+confusion_matrix
+
+#misclassification rate
+misclassRate <- mean(predicted != datnorm$salary_binary)
+
+#print
+misclassRate
+
+#True Positive
+tp <- confusion_matrix[2,2]
+#False Negative
+fn <- confusion_matrix[2,1]
+#True Negative
+tn <- confusion_matrix[1,1]
+#False Positive
+fp <- confusion_matrix[1,2]
+
+sensitivity <- tp/(tp+fn)
+sensitivity
+
+specificity <- tn/(tn+fp)
+specificity
+```
+
+To visualize the sensitivity and specificity we plotted the ROC curve of our model below. The ROC curve leans towards the upper left portion of the plot and the AUC is .8986 which combine to show that our model is good at predicting results.
+
+```{r, include = FALSE}
+library(plotROC)
+```
+```{r, warning=FALSE}
+roc.df <- tibble(observed = datnorm$salary_binary,
+                 predicted = probs)
+#ROC
+ggplot(data = roc.df, mapping = aes(d = observed, m = predicted)) +
+  geom_roc(labels=F)+
+  ggtitle("ROC Curve")
+```
+```{r, include = FALSE}
+#Find AUC
+library(pROC)
+```
+```{r, warning=FALSE}
+roc_data <- roc(roc.df$observed, roc.df$predicted)
+
+#Calculate AUC
+auc <- auc(roc_data)
+
+#Print AUC value
+print(auc)
+```
+
+After validating the accuracy of the model we visualized some key findings from our results. The first plot displays the the predicted probability of each individual in our dataset to make a salary over 50,000 dollars. We colored the points by marital status as being married is the most significant categorical variable in our model. This significance can be seen as the never married individuals data points have the lowest probability of making 50,000 dollars while the married data points colored in purple have a significantly higher average predicted probability of making a salary of 50,000 dollars.
+
+The next plot focuses on one of the most significant numeric variables in our model, age. The plot shows the average predicted probability of making 50,000 dollars for bins of every 10 years. It is evident that there is a trend that older individual had better predicted probabilities than younger individuals, with the peak age being 50-60 years old.
+
+```{r, echo = FALSE, warning = FALSE}
+#Plotting the predicted probabilities colored by marital status
+ggplot(datnorm, aes(x = seq_along(predicted_prob), y = predicted_prob, color = marital.status)) +
+  geom_point() +
+  xlab("Individual") +
+  ylab("Predicted Probability") +
+  ggtitle("Predicted Probabilities of Individuals in the Data Set")
+
+#Plotting the average predicted probability for ever 10 years of individuals.
+ggplot(datnorm, aes(x = cut(dat$age, breaks = seq(0, max(dat$age) + 10, by = 10)), y = probs)) +
+  stat_summary(fun.y = "mean", geom = "bar", fill = "lightgreen", color = "black") +
+  labs(x = "Age", y = "Average Probability") +
+  ggtitle("Histogram of Age vs Average Probability")
+```
+
+***
+\pagebreak
+
+**KNN Analysis**
+
+```{r, echo = FALSE}
+### K-nearest Neighbor ###
+library(class)
+knn.training = training.dmy[-37] # Remove target variable
+knn.test = test.dmy[-37]
+
+# This code takes the salary factor from the data frame and creates DF_train_labels and DF_test_labels.
+DF_train_labels = DF$salary[samp] # Real results
+DF_test_labels = DF$salary[-samp]
+
+# Building the models with different k values
+estknn.20 = knn(knn.training, knn.test , DF_train_labels, k=20)
+estknn.10 = knn(knn.training, knn.test , DF_train_labels, k=10)
+estknn.5 = knn(knn.training, knn.test , DF_train_labels, k=5)
+
+confusionMatrix(table(estknn.20,DF_test_labels))
+confusionMatrix(table(estknn.10,DF_test_labels))
+confusionMatrix(table(estknn.10,DF_test_labels))
+
+```
+
+With an accuracy rate of 83%, it is advisable to include most of the factors in the analysis. This is supported by the high sensitivity, which indicates a high proportion of correctly identified positive observations, and the high balanced accuracy. These factors contribute to the credibility of using the KNN model to determine the impact of other variables on salary.
+
+
+\pagebreak
+
+**Conclusion:**
+By examining both the regression model and the KNN model, we have arrived at the conclusion that multiple factors significantly influence salary prediction. The accuracy of both models provides strong support for this conclusion, indicating that they have effectively captured the impact of various variables on salary.
+The exploratory data analysis also corroborates these conclusions that many factors affect the prediction of salary. Some of the factors within the model that were the most influential were:\
+- Marital Status \
+- Age \
+- Hours per Week \
+\
+All of these variables were extremely influential to predict if someone will make over $50,000 per year, as shown through the logistic regression analysis and the exploratory data analysis.\
+Another finding that we observed was that Capital Gains and Losses were both positive to predict salary. This is not what we expected from the model, but it makes sense because capital gains and losses are the gains from the selling of assets. To be able to gain and lose money from assets, there needs to be capital in the first place to buy assets.\
+Additionally, we found that people that are not married were negative to the model, meaning marital status that are single, separated, or widowed earn less on average compared to their married counterparts. \
+
+Limitations:\
+Some limitations we faced regarding this data analysis was the fact that this data set was older, particularly from a 1994 Census. This means that this data would probably not be completely representative of what the current work landscape is like, especially since surveying was not as sophisticated as it is today. \
+Additionally, extraction of the data is likely to be skewed, especially the ratio of male to female and married to unmarried. Through our data analysis, we discovered that this dataset was mostly comprised of male workers, which may skew the data as it is not representative of the population.
+
+
+**Contributions**
+
+Russel Wasko: Helped build research questions, logistic regression \
+Russell Ng: Helped build research questions, exploratory data analysis, formatting of RMD file \ 
+Michelle Cheuk: Helped build research questions, exploratory data analysis \ 
+Arlette Jaime: Helped build research questions, exploratory data analysis \
+Jiyeon Seo: Helped build research questions, exploratory data analysis, KNN analysis and data cleaning
+
+**Link to the Dataset**
+
+[Link to the Dataset](https://www.kaggle.com/datasets/ayessa/salary-prediction-classification)
+\
+[Google Drive Link](https://drive.google.com/file/d/1JKXm2ea_cg6lMgEyUZEULLnrgbBE7c6k/view?usp=sharing)
+
+
